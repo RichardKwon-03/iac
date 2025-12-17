@@ -1,0 +1,50 @@
+global:
+  domain: argocd.myhosting
+server:
+  service:
+    type: ClusterIP
+  ingress:
+    enabled: true
+    ingressClassName: alb
+    annotations:
+      alb.ingress.kubernetes.io/scheme: internet-facing
+      alb.ingress.kubernetes.io/target-type: ip
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+      alb.ingress.kubernetes.io/ssl-redirect: "443"
+      alb.ingress.kubernetes.io/certificate-arn: certarn
+      alb.ingress.kubernetes.io/backend-protocol: HTTP
+      alb.ingress.kubernetes.io/healthcheck-path: /healthz
+      alb.ingress.kubernetes.io/success-codes: "200"
+      external-dns.alpha.kubernetes.io/hostname: argocd.myhosting
+      alb.ingress.kubernetes.io/group.name: platform
+      alb.ingress.kubernetes.io/load-balancer-name: platform-alb
+    hosts:
+      - argocd.myhosting
+    paths:
+      - /
+notifications:
+  enabled: true
+  cm:
+    create: false
+
+configs:
+  rbac:
+    policy.default: role:admin
+    policy.csv: |
+      g, admin, role:admin
+  cm:
+    url: https://argocd.myhosting
+  params:
+    server.insecure: true
+
+controller:
+  replicas: 1
+
+repoServer:
+  replicas: 1
+
+redis:
+  enabled: true
+
+dex:
+  enabled: false

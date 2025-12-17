@@ -1,0 +1,14 @@
+apiVersion: argocd-image-updater.argoproj.io/v1alpha1
+kind: ImageUpdater
+metadata:
+  name: api-dev
+  namespace: argocd
+spec:
+  namespace: argocd
+  applicationRefs:
+    - namePattern: api-dev
+      images:
+        - alias: api
+          imageName: myaccount.dkr.ecr.ap-northeast-2.amazonaws.com/k8s/be/dev
+          commonUpdateSettings:
+            updateStrategy: newest-build

@@ -1,0 +1,97 @@
+controller:
+  type: daemonset
+  tolerations:
+    - operator: Exists
+  affinity: {}
+  priorityClassName: monitoring-critical
+
+serviceAccount:
+  create: true
+  name: alloy
+
+alloy:
+  mounts:
+    varlog: true
+    dockercontainers: true
+
+  configMap:
+    create: true
+    content: |-
+      logging {
+        level  = "info"
+        format = "logfmt"
+      }
+
+      local.file_match "k8s_logs" {
+        path_targets = [
+          { __path__ = "/var/log/pods/*/*/*.log", job = "varlogs" },
+        ]
+      }
+
+      loki.write "default" {
+        endpoint {
+          url = "http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push"
+        }
+      }
+
+      loki.source.file "k8s_logs" {
+        targets       = local.file_match.k8s_logs.targets
+        forward_to    = [loki.write.default.receiver]
+        tail_from_end = true
+      }
+
+      otelcol.receiver.otlp "k8s" {
+        grpc {
+          endpoint = "0.0.0.0:4317"
+        }
+        http {
+          endpoint = "0.0.0.0:4318"
+        }
+
+        output {
+          traces = [otelcol.processor.k8sattributes.traces.input]
+        }
+      }
+      
+      otelcol.processor.k8sattributes "traces" {
+        pod_association {
+          source {
+            from = "connection"
+          }
+        }
+      
+        extract {
+          metadata = [
+            "k8s.namespace.name",
+            "k8s.pod.name",
+            "k8s.node.name",
+          ]
+        }
+      
+        output {
+          traces = [otelcol.processor.batch.traces.input]
+        }
+      }
+
+      otelcol.processor.batch "traces" {
+        output {
+          traces = [otelcol.exporter.otlp.tempo.input]
+        }
+      }
+
+      otelcol.exporter.otlp "tempo" {
+        client {
+          endpoint = "tempo.monitoring.svc.cluster.local:4317"
+          tls {
+            insecure = true
+          }
+        }
+      }
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 200m
+    memory: 256Mi

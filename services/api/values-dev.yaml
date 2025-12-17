@@ -1,0 +1,85 @@
+nodeSelector:
+  pool: dev
+
+tolerations:
+  - key: pool
+    operator: Equal
+    value: dev
+    effect: NoSchedule
+
+image:
+  repository: myaccount.dkr.ecr.ap-northeast-2.amazonaws.com/k8s/be/dev
+  tag: "25.11.24.2-180a3c9-dev"
+
+replicaCount: 2
+
+strategy:
+  blueGreen:
+    autoPromotionEnabled: true
+    autoPromotionSeconds: 30
+
+ingress:
+  enabled: true
+  className: alb
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/certificate-arn: certarn
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+    alb.ingress.kubernetes.io/healthcheck-path: /status/health
+    alb.ingress.kubernetes.io/success-codes: "200"
+    external-dns.alpha.kubernetes.io/hostname: k8s-dev-api.myhosting
+    alb.ingress.kubernetes.io/group.name: services
+    alb.ingress.kubernetes.io/load-balancer-name: services-alb
+  hosts:
+    - host: k8s-dev-api.myhosting
+      paths:
+        - path: /
+          pathType: Prefix
+
+  tls: []
+
+previewIngress:
+  enabled: true
+  className: alb
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/certificate-arn: certarn
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+    alb.ingress.kubernetes.io/healthcheck-path: /status/health
+    alb.ingress.kubernetes.io/success-codes: "200"
+    external-dns.alpha.kubernetes.io/hostname: k8s-dev-api-preview.myhosting
+    alb.ingress.kubernetes.io/group.name: services
+    alb.ingress.kubernetes.io/load-balancer-name: services-alb
+  hosts:
+    - host: k8s-dev-api-preview.myhosting
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 60
+  targetMemoryUtilizationPercentage: 70
+
+env:
+  - name: NODE_ENV
+    value: "development"
+  - name: LOG_LEVEL
+    value: "info"
+
+externalSecret:
+  enabled: true
+  remoteSecretName: "api/dev/env"
+  secretName: "api-dev-envfile"
+
+reloader:
+  enabled: true

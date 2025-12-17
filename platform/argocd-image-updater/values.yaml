@@ -1,0 +1,28 @@
+serviceAccount:
+  create: true
+  name: argocd-image-updater
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::myaccount:role/argocd-image-updater
+
+config:
+  applicationsAPI: true
+  logLevel: info
+  writeBackMethod: git
+  git:
+    writeBackBranch: main
+    commitMessage: "chore(auto): update image tag"
+  registries:
+    - name: aws-ecr
+      prefix: myaccount.dkr.ecr.ap-northeast-2.amazonaws.com
+      api_url: https://myaccount.dkr.ecr.ap-northeast-2.amazonaws.com
+      default: true
+
+replicaCount: 1
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 200m
+    memory: 256Mi

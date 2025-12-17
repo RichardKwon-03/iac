@@ -1,0 +1,110 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: {{ include "api.fullname" . }}
+  labels:
+    {{- include "api.labels" . | nindent 4 }}
+  {{- if .Values.reloader.enabled }}
+  annotations:
+    reloader.stakater.com/auto: "true"
+  {{- end }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  progressDeadlineSeconds: {{ .Values.progressDeadlineSeconds }}
+  progressDeadlineAbort: {{ .Values.progressDeadlineAbort }}
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
+  selector:
+    matchLabels:
+      {{- include "api.selectorLabels" . | nindent 6 }}
+
+  strategy:
+    blueGreen:
+      activeService: {{ include "api.fullname" . }}
+      previewService: {{ include "api.fullname" . }}-preview
+      autoPromotionEnabled: {{ .Values.strategy.blueGreen.autoPromotionEnabled }}
+      autoPromotionSeconds: {{ .Values.strategy.blueGreen.autoPromotionSeconds }}
+      scaleDownDelaySeconds: {{ .Values.strategy.blueGreen.scaleDownDelaySeconds }}
+
+  template:
+    metadata:
+      labels:
+        {{- include "api.selectorLabels" . | nindent 8 }}
+      annotations:
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      serviceAccountName: {{ include "api.serviceAccountName" . | trim | quote }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+
+      containers:
+        - name: {{ include "api.name" . }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.containerPort }}
+              protocol: TCP
+
+          {{- if .Values.probes.liveness.enabled }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.probes.liveness.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
+          {{- end }}
+
+          {{- if .Values.probes.readiness.enabled }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.probes.readiness.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
+            successThreshold: {{ .Values.probes.readiness.successThreshold }}
+          {{- end }}
+
+          env:
+            {{- if .Values.env }}
+            {{- toYaml .Values.env | nindent 12 }}
+            {{- end }}
+
+          volumeMounts:
+            {{- if .Values.externalSecret.enabled }}
+            - name: envfile
+              mountPath: {{ .Values.externalSecret.mountPath | default "/app/.env" }}
+              subPath:   {{ .Values.externalSecret.subPath   | default ".env" }}
+            {{- end }}
+
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+
+      volumes:
+        {{- if .Values.externalSecret.enabled }}
+        - name: envfile
+          secret:
+            secretName: {{ .Values.externalSecret.secretName }}
+            items:
+              - key:  {{ .Values.externalSecret.secretKey }}
+                path: {{ .Values.externalSecret.subPath | default ".env" }}
+        {{- end }}
+
+      nodeSelector:
+        {{- toYaml .Values.nodeSelector | nindent 8 }}
+      affinity:
+        {{- toYaml .Values.affinity | nindent 8 }}
+      tolerations:
+        {{- toYaml .Values.tolerations | nindent 8 }}

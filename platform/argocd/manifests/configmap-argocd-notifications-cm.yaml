@@ -1,0 +1,86 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-notifications-cm
+  namespace: argocd
+data:
+  service.slack: |
+    token: $slack-token
+
+  context: |
+    argocdUrl: https://argocd.myhosting
+
+  template.deploy-start-slack: |
+    message: |
+      🚀 [{{.app.metadata.name}}] 배포 시작
+      - Sync: {{.app.status.sync.status}}
+      - Phase: {{.app.status.operationState.phase}}
+    slack:
+      attachments: |
+        [{
+          "title": "배포 시작 - {{.app.metadata.name}}",
+          "text": "자세히 보기: {{.context.argocdUrl}}/applications/{{.app.metadata.name}}",
+          "color": "#439FE0"
+        }]
+
+  template.deploy-succeeded-slack: |
+    message: |
+      ✅ [{{.app.metadata.name}}] 배포 성공
+      - Sync: {{.app.status.sync.status}}
+      - Health: {{.app.status.health.status}}
+    slack:
+      attachments: |
+        [{
+          "title": "배포 성공 - {{.app.metadata.name}}",
+          "text": "자세히 보기: {{.context.argocdUrl}}/applications/{{.app.metadata.name}}",
+          "color": "#36A64F"
+        }]
+
+  template.deploy-failed-slack: |
+    message: |
+      ❌ [{{.app.metadata.name}}] 배포 실패 / 비정상 상태
+      - Sync: {{.app.status.sync.status}}
+      - Health: {{.app.status.health.status}}
+      - Phase: {{if .app.status.operationState}}{{.app.status.operationState.phase}}{{end}}
+    slack:
+      attachments: |
+        [{
+          "title": "배포 실패 - {{.app.metadata.name}}",
+          "text": "로그 확인 필요. ArgoCD: {{.context.argocdUrl}}/applications/{{.app.metadata.name}}",
+          "color": "#E74C3C"
+        }]
+
+  trigger.on-dev-deploy-start: |
+    - when: app.metadata.name == 'api-dev'
+        && app.status.operationState != null
+        && (
+          app.status.operationState.phase == 'Running'
+          || app.status.operationState.phase == 'Pending'
+          || app.status.operationState.phase == 'InProgress'
+        )
+      send: [deploy-start-slack]
+
+  trigger.on-dev-deploy-succeeded: |
+    - when: app.metadata.name == 'api-dev'
+        && app.status.operationState != null
+        && app.status.operationState.phase == 'Succeeded'
+        && app.status.sync.status == 'Synced'
+        && app.status.health.status == 'Healthy'
+      send: [deploy-succeeded-slack]
+
+  trigger.on-dev-deploy-failed: |
+    - when: app.metadata.name == 'api-dev'
+        && app.status.operationState != null
+        && (
+          app.status.operationState.phase == 'Failed'
+          || app.status.health.status == 'Degraded'
+        )
+      send: [deploy-failed-slack]
+
+  subscriptions: |
+    - recipients:
+        - slack:#k8s
+      triggers:
+        - on-dev-deploy-start
+        - on-dev-deploy-succeeded
+        - on-dev-deploy-failed

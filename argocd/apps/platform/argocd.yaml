@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argocd
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: platform
+  sources:
+    - repoURL: https://argoproj.github.io/argo-helm
+      chart: argo-cd
+      targetRevision: 9.1.4
+      helm:
+        valueFiles:
+          - $values/platform/argocd/values.yaml
+    - repoURL: https://github.com/my-git/k8s.git
+      targetRevision: main
+      ref: values
+
+    - repoURL: https://github.com/my-git/k8s.git
+      targetRevision: main
+      path: platform/argocd/manifests
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

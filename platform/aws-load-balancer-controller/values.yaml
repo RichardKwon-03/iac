@@ -1,0 +1,13 @@
+clusterName: platform
+region: ap-northeast-2
+vpcId: vpc-0f5a35b6dd516c79c
+
+serviceAccount:
+  create: true
+  name: aws-load-balancer-controller
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::myaccount:role/alb-controller
+
+replicaCount: 2
+
+logLevel: info

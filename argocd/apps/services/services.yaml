@@ -1,0 +1,53 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: services
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  generators:
+    - matrix:
+        generators:
+          - git:
+              repoURL: https://github.com/my-git/k8s.git
+              revision: main
+              directories:
+                - path: services/*
+          - list:
+              elements:
+                - env: dev
+                  namespace: '{{path.basename}}-dev'
+#                - env: stg
+#                  namespace: '{{path.basename}}-stg'
+#                - env: prod
+#                  namespace: '{{path.basename}}-prod'
+
+  template:
+    metadata:
+      name: '{{path.basename}}-{{env}}'
+      namespace: argocd
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: services
+      source:
+        repoURL: https://github.com/my-git/k8s.git
+        targetRevision: main
+        path: '{{path}}'
+        helm:
+          valueFiles:
+            - values.yaml
+            - values-{{env}}.yaml
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{namespace}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+      ignoreDifferences:
+        - group: apps
+          kind: Deployment
+          jsonPointers:
+            - /spec/replicas

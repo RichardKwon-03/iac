@@ -1,0 +1,91 @@
+nameOverride: monitoring
+fullnameOverride: monitoring
+
+defaultRules:
+  create: true
+
+prometheusOperator:
+  admissionWebhooks:
+    patch:
+      enabled: true
+
+prometheus:
+  enabled: true
+  prometheusSpec:
+    serviceMonitorSelectorNilUsesHelmValues: true
+    podMonitorSelectorNilUsesHelmValues: true
+
+    retention: 15d
+    replicas: 1
+
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: 1
+        memory: 2Gi
+
+kubeStateMetrics:
+  enabled: true
+
+nodeExporter:
+  enabled: true
+  priorityClassName: monitoring-critical
+prometheus-node-exporter:
+  priorityClassName: monitoring-critical
+
+grafana:
+  enabled: true
+  admin:
+    existingSecret: grafana-admin-secret
+    userKey: admin-user
+    passwordKey: admin-password
+
+  ingress:
+    enabled: true
+    ingressClassName: alb
+    hosts:
+      - grafana.myhosting
+
+    annotations:
+      alb.ingress.kubernetes.io/scheme: internet-facing
+      alb.ingress.kubernetes.io/target-type: ip
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+      alb.ingress.kubernetes.io/ssl-redirect: "443"
+      alb.ingress.kubernetes.io/certificate-arn: certarn
+      alb.ingress.kubernetes.io/backend-protocol: HTTP
+      alb.ingress.kubernetes.io/healthcheck-path: /
+      alb.ingress.kubernetes.io/success-codes: "200-302"
+      alb.ingress.kubernetes.io/group.name: platform
+      alb.ingress.kubernetes.io/load-balancer-name: platform-alb
+      external-dns.alpha.kubernetes.io/hostname: grafana.myhosting
+
+  defaultDashboardsEnabled: true
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  additionalDataSources:
+    - name: Loki
+      type: loki
+      access: proxy
+      url: http://loki.monitoring.svc.cluster.local:3100
+      jsonData:
+        maxLines: 1000
+
+alertmanager:
+  enabled: true
+  alertmanagerSpec:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi

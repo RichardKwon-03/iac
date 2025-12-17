@@ -1,0 +1,34 @@
+autoDiscovery:
+  clusterName: mycluster
+
+awsRegion: ap-northeast-2
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 300Mi
+  limits:
+    cpu: 1000m
+    memory: 600Mi
+
+extraArgs:
+  logtostderr: "true"
+  stderrthreshold: info
+  balance-similar-node-groups: "true"
+  skip-nodes-with-local-storage: "false"
+  skip-nodes-with-system-pods: "false"
+  expander: "least-waste"
+  scale-down-utilization-threshold: "0.6"
+  scale-down-unneeded-time: "10m"
+
+rbac:
+  serviceAccount:
+    create: true
+    name: cluster-autoscaler
+    annotations:
+      eks.amazonaws.com/role-arn: arn:aws:iam::myaccount:role/cluster-autoscaler
+
+nodeSelector:
+  pool: platform
+
+tolerations: []

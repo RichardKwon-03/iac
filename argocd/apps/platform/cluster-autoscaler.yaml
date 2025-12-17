@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cluster-autoscaler
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: platform
+
+  sources:
+    - repoURL: https://kubernetes.github.io/autoscaler
+      chart: cluster-autoscaler
+      targetRevision: 9.52.1
+      helm:
+        valueFiles:
+          - $values/platform/cluster-autoscaler/values.yaml
+    - repoURL: https://github.com/my-git/k8s.git
+      targetRevision: main
+      ref: values
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

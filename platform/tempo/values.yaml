@@ -1,0 +1,6 @@
+searchEnabled: true
+
+tempo:
+  storage:
+    trace:
+      backend: local
